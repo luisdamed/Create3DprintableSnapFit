@@ -1,0 +1,11 @@
+{
+	"autodeskProduct":	"Fusion",
+	"type":	"script",
+	"author":	"Luis Medina",
+	"description":	{
+		"":	"Shortcut for creating a simple snap fit for 3D printing.
+		     Launch while editing a sketch on the plane where the male tab should go"
+	},
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
