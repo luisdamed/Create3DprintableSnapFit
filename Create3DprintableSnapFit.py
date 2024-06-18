@@ -34,7 +34,7 @@ def createUserParams(designObj,tabWidth, tabHeight, tabClearance):
 
 
 
-def createTabSketch(sketchLinesObj, point, widthParam, 
+def createTabSketch(sketch, point, widthParam, 
                     heightParan, clearanceParam):
         
     # Define start and end points for male tab
@@ -44,7 +44,9 @@ def createTabSketch(sketchLinesObj, point, widthParam,
     except:
         tabStartPoint = adsk.core.Point3D.create(0,0,0)
     
-    tabStartPoint = adsk.core.Point3D.create(0,0,0)
+    # tabStartPoint = adsk.core.Point3D.create(point.entity.geometry.x,
+    #                                          point.entity.geometry.y,
+    #                                          point.entity.geometry.z)
     maleTabEndPoint = adsk.core.Point3D.create(tabStartPoint.asArray()[0] + widthParam.value/2,
                                             tabStartPoint.asArray()[1] + heightParan.value/2,
                                             0)
@@ -54,17 +56,31 @@ def createTabSketch(sketchLinesObj, point, widthParam,
                 tabStartPoint.asArray()[0] + widthParam.value/2 + clearanceParam.value,
                 tabStartPoint.asArray()[1] + heightParan.value/2 + clearanceParam.value,
                                                           0)
-    
+    sketchLines = sketch.sketchCurves.sketchLines
 
     # Create Center-point rectangle the size of the tab
-    maleTabSketch = sketchLinesObj.addCenterPointRectangle(
+    maleTabSketch = sketchLines.addCenterPointRectangle(
                                                 tabStartPoint, 
                                                 maleTabEndPoint)
     
+    sketch.geometricConstraints.addHorizontal(maleTabSketch.item(0))
+    sketch.geometricConstraints.addHorizontal(maleTabSketch.item(2))
+    sketch.geometricConstraints.addVertical(maleTabSketch.item(1))
+    sketch.geometricConstraints.addVertical(maleTabSketch.item(3))
+    
     # Create offset rectangle for female tab
-    femaleTabSketch = sketchLinesObj.addCenterPointRectangle(
+    femaleTabSketch = sketchLines.addCenterPointRectangle(
                                                 tabStartPoint,
                                                 femaleTabEndPoint)
+    
+    sketch.geometricConstraints.addHorizontal(femaleTabSketch.item(0))
+    sketch.geometricConstraints.addHorizontal(femaleTabSketch.item(2))
+    sketch.geometricConstraints.addVertical(femaleTabSketch.item(1))
+    sketch.geometricConstraints.addVertical(femaleTabSketch.item(3))
+    
+    sketch.sketchDimensions.addDistanceDimension(femaleTabSketch.item(0).startSketchPoint, femaleTabSketch.item(0).endSketchPoint,
+                                                     adsk.fusion.DimensionOrientations.HorizontalDimensionOrientation,
+                                                     adsk.core.Point3D.create(widthParam.value, 0, 0))
 
     return (maleTabSketch, femaleTabSketch)
 
@@ -81,14 +97,15 @@ def extrudeTabs(sketchObj, extrusionsObj, heightParam,
 
 
         # Get the profile defined by the outer tab
-        maleProfile = sketchObj.profiles.item(0)
+        maleProfile = sketchObj.profiles.item(1)
 
         # Create an object collection to use an input for the inner tab
         femaleProfile = adsk.core.ObjectCollection.create()
         
         # Add all of the profiles to the collection.
-        for prof in sketchObj.profiles:
-            femaleProfile.add(prof)
+        for i_prof, prof in enumerate(sketchObj.profiles):
+            if i_prof > 0:
+                femaleProfile.add(prof)
       
 
 
@@ -151,25 +168,28 @@ def run(context):
         
         # Get current sketch and sketch components
         sketch = adsk.fusion.Sketch.cast(app.activeEditObject)
-        sketchLines = sketch.sketchCurves.sketchLines
 
         # # Ask the user to input the dimensions for the snap hook tab
-        tabWidth = ui.inputBox('Input tab dimensions in mm: ', 
-                                    'Tab width', '20')
-        tabHeight = ui.inputBox('Input tab dimensions in mm: ', 
+        tabWidth = ui.inputBox('Input tab width in mm: ', 
+                                    'Tab width', '5')
+        tabHeight = ui.inputBox('Input tab height in mm: ', 
                                     'Tab height', '2')
-        tabClearance = ui.inputBox('Input tab dimensions in mm: ', 
+        tabClearance = ui.inputBox('Input tab clearance in mm: ', 
                                     'Tab clearance', '0.2')
         
         Selection = ui.selectEntity('Select Point for centering', 'SketchPoints')
-        ClickPoint : adsk.core.Point3D = Selection.point 
+        
+
+        ClickPoint = adsk.core.Point3D.create(Selection.entity.geometry.x,
+                                             Selection.entity.geometry.y,
+                                             Selection.entity.geometry.z)
         
         # Create new user parameters
         newParams = createUserParams(design, tabWidth, 
                                      tabHeight, tabClearance)
         
         # Create base sketches to extrude from
-        tabSketch = createTabSketch(sketchLines,ClickPoint, newParams["width"], 
+        tabSketch = createTabSketch(sketch ,ClickPoint, newParams["width"], 
                                      newParams["height"], newParams["clearance"])
 
         # Extrude tab bodies
